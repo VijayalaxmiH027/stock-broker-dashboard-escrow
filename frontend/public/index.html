@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Stock Broker Dashboard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<!-- Google Fonts & Icons -->
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css" integrity="sha512-..." crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+<style>
+    body {
+        margin: 0;
+        font-family: "Poppins", sans-serif;
+        background: linear-gradient(135deg, #141E30, #243B55);
+        color: #fff;
+    }
+
+    header {
+        padding: 25px;
+        text-align: center;
+        background: rgba(255, 255, 255, 0.05);
+        backdrop-filter: blur(12px);
+        font-size: 32px;
+        font-weight: 700;
+        box-shadow: 0 3px 15px rgba(0,0,0,0.3);
+        letter-spacing: 1px;
+    }
+
+    .container {
+        max-width: 1200px;
+        margin: auto;
+        padding: 20px;
+    }
+
+    .card {
+        background: rgba(255, 255, 255, 0.08);
+        padding: 25px;
+        border-radius: 20px;
+        backdrop-filter: blur(15px);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 6px 25px rgba(0,0,0,0.3);
+        margin-bottom: 25px;
+        transition: 0.3s ease;
+    }
+
+    .card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.35);
+    }
+
+    h3 {
+        margin: 0 0 15px 0;
+        display: flex;
+        align-items: center;
+        font-weight: 600;
+        gap: 10px;
+    }
+
+    input, select {
+        width: 100%;
+        padding: 14px;
+        border-radius: 14px;
+        font-size: 16px;
+        border: none;
+        margin-top: 12px;
+        outline: none;
+        background: rgba(255, 255, 255, 0.9);
+        transition: 0.2s ease;
+    }
+
+    input:focus, select:focus {
+        transform: scale(1.02);
+    }
+
+    button {
+        width: 100%;
+        padding: 15px;
+        margin-top: 14px;
+        font-size: 16px;
+        font-weight: 600;
+        border-radius: 14px;
+        border: none;
+        cursor: pointer;
+        background: linear-gradient(90deg, #00c6ff, #0072ff);
+        color: #fff;
+        transition: 0.3s ease;
+    }
+
+    button:hover {
+        transform: scale(1.05);
+        background: linear-gradient(90deg, #00e0ff, #0059ff);
+    }
+
+    .stocks-grid {
+        display: grid;
+        margin-top: 25px;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 25px;
+    }
+
+    .stock-card {
+        padding: 25px;
+        background: rgba(255, 255, 255, 0.12);
+        border-radius: 20px;
+        backdrop-filter: blur(12px);
+        text-align: center;
+        cursor: pointer;
+        transition: 0.3s ease;
+        border: 1px solid rgba(255, 255, 255, 0.25);
+        position: relative;
+        overflow: hidden;
+    }
+
+    .stock-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+    }
+
+    .stock-card h2 {
+        margin-bottom: 10px;
+        font-size: 24px;
+        color: #00ffff;
+        letter-spacing: 1px;
+    }
+
+    .stock-price {
+        font-size: 28px;
+        font-weight: bold;
+        margin-top: 10px;
+        transition: 0.3s ease;
+    }
+
+    /* Price color animation */
+    .price-up {
+        color: #00ff6a;
+        animation: flash 0.5s;
+    }
+
+    .price-down {
+        color: #ff4c4c;
+        animation: flash 0.5s;
+    }
+
+    @keyframes flash {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+
+</style>
+</head>
+<body>
+
+<header>📊 Stock Broker Dashboard</header>
+
+<div class="container">
+
+    <!-- LOGIN -->
+    <div class="card">
+        <h3><i class="fa-solid fa-lock"></i> Login</h3>
+        <input id="emailInput" type="email" placeholder="Enter Email">
+        <button onclick="login()">Login</button>
+    </div>
+
+    <!-- SUBSCRIBE -->
+    <div class="card">
+        <h3><i class="fa-solid fa-chart-line"></i> Subscribe to Stock</h3>
+        <select id="stockSelect">
+            <option value="GOOG">GOOG</option>
+            <option value="TSLA">TSLA</option>
+            <option value="AMZN">AMZN</option>
+            <option value="META">META</option>
+            <option value="NVDA">NVDA</option>
+        </select>
+        <button onclick="subscribeStock()">Subscribe</button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <div class="card">
+        <h3><i class="fa-solid fa-poll"></i> Your Subscribed Stocks</h3>
+        <div id="stockContainer" class="stocks-grid"></div>
+    </div>
+
+</div>
+
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+<script>
+const socket = io("http://localhost:5000");
+let email = "";
+let subscribed = [];
+let previousPrices = {}; // track last price to show up/down animation
+
+function login() {
+    const newEmail = document.getElementById("emailInput").value.trim();
+    if (!newEmail) return alert("Enter a valid email");
+
+    if (email && newEmail !== email) {
+        subscribed = [];
+        document.getElementById("stockContainer").innerHTML = "";
+        previousPrices = {};
+    }
+
+    email = newEmail;
+    alert("Logged in as: " + email);
+
+    socket.emit("getSubscriptions", email);
+}
+
+function subscribeStock() {
+    if (!email) return alert("Login first!");
+
+    const ticker = document.getElementById("stockSelect").value;
+    if (subscribed.includes(ticker)) return alert("Already subscribed!");
+
+    subscribed.push(ticker);
+    socket.emit("subscribe", { email, ticker });
+    addStockCard(ticker);
+}
+
+function addStockCard(ticker) {
+    const container = document.getElementById("stockContainer");
+    if (document.getElementById(ticker)) return;
+
+    const div = document.createElement("div");
+    div.className = "stock-card";
+    div.id = ticker;
+
+    div.innerHTML = `
+        <h2>${ticker}</h2>
+        <div id="p-${ticker}" class="stock-price">Loading...</div>
+    `;
+
+    container.appendChild(div);
+}
+
+socket.on("priceUpdate", data => {
+    const priceBox = document.getElementById(`p-${data.stock}`);
+    if (priceBox) {
+        const oldPrice = previousPrices[data.stock];
+        const newPrice = parseFloat(data.price);
+
+        priceBox.innerHTML = "$" + data.price;
+
+        // Animate color for up/down
+        if (oldPrice !== undefined) {
+            if (newPrice > oldPrice) {
+                priceBox.classList.add("price-up");
+                priceBox.classList.remove("price-down");
+            } else if (newPrice < oldPrice) {
+                priceBox.classList.add("price-down");
+                priceBox.classList.remove("price-up");
+            }
+        }
+
+        previousPrices[data.stock] = newPrice;
+
+        // Remove animation class after 500ms
+        setTimeout(() => {
+            priceBox.classList.remove("price-up", "price-down");
+        }, 500);
+    }
+});
+
+socket.on("currentSubscriptions", (stocks) => {
+    subscribed = stocks;
+    stocks.forEach(ticker => addStockCard(ticker));
+});
+</script>
+
+</body>
+</html>
